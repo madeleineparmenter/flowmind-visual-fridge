@@ -1,0 +1,2509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flowmind Visual Fridge</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #E8D5F2 0%, #D4C5E8 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 420px;
+            width: 100%;
+            position: relative;
+            padding-bottom: 80px;
+        }
+
+        /* Screen Management */
+        .screen {
+            display: none;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Top Bar */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            gap: 12px;
+        }
+
+        .back-button {
+            width: 44px;
+            height: 44px;
+            background: white;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transition: all 0.2s;
+        }
+
+        .back-button:hover {
+            transform: translateX(-2px);
+        }
+
+        .search-icon {
+            width: 44px;
+            height: 44px;
+            background: white;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .filters {
+            display: flex;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .filter-chip {
+            padding: 12px 20px;
+            background: white;
+            border-radius: 24px;
+            font-size: 15px;
+            font-weight: 500;
+            color: #2C2C26;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .filter-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        }
+
+        .filter-chip.active {
+            background: #B9C9ED;
+            color: white;
+        }
+
+        /* Fridge Section */
+        .fridge-container {
+            background: linear-gradient(135deg, #8B9FCC 0%, #7A8FBB 100%);
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        }
+
+        .section-label {
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+        }
+
+        .fridge-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        /* Freezer Section */
+        .freezer-container {
+            background: linear-gradient(135deg, #6B8DB8 0%, #5A7CA7 100%);
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        }
+
+        .freezer-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        /* Food Category Cards */
+        .food-card {
+            aspect-ratio: 1;
+            border-radius: 16px;
+            padding: 16px;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .food-card:hover {
+            transform: scale(1.05);
+        }
+
+        .food-card.fruits {
+            background: linear-gradient(135deg, #FFD4A3 0%, #FFBE87 100%);
+        }
+
+        .food-card.vegetables {
+            background: linear-gradient(135deg, #FFC9A8 0%, #FFB090 100%);
+        }
+
+        .food-card.dairy {
+            background: linear-gradient(135deg, #A8C9FF 0%, #90B5FF 100%);
+        }
+
+        .food-card.proteins {
+            background: linear-gradient(135deg, #FFE4A8 0%, #FFD690 100%);
+        }
+
+        .food-card.condiments {
+            background: linear-gradient(135deg, #C9B8E8 0%, #B5A0D8 100%);
+        }
+
+        .food-card.leftovers {
+            background: linear-gradient(135deg, #FFB8B8 0%, #FFA0A0 100%);
+        }
+
+        .food-card.frozen-meals {
+            background: linear-gradient(135deg, #B8E8D8 0%, #A0D8C8 100%);
+        }
+
+        .food-card.frozen-produce {
+            background: linear-gradient(135deg, #A8E8C8 0%, #90D8B8 100%);
+        }
+
+        .freezer-card {
+            aspect-ratio: 16/10;
+        }
+
+        .card-icon {
+            font-size: 36px;
+            margin-bottom: 8px;
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: rgba(0, 0, 0, 0.8);
+            margin-bottom: 4px;
+            line-height: 1.2;
+        }
+
+        .card-count {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        /* Detailed Item View */
+        .items-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .item-card {
+            border-radius: 16px;
+            padding: 16px;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            min-height: 140px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .item-card:hover {
+            transform: scale(1.03);
+        }
+
+        /* Freshness colors */
+        .item-card.fresh {
+            background: linear-gradient(135deg, #D4F1D4 0%, #B8E6B8 100%);
+        }
+
+        .item-card.use-soon {
+            background: linear-gradient(135deg, #FFF4C4 0%, #FFE99A 100%);
+        }
+
+        .item-card.use-today {
+            background: linear-gradient(135deg, #FFD4B3 0%, #FFB890 100%);
+        }
+
+        .item-card.past-due {
+            background: linear-gradient(135deg, #FFB8B8 0%, #FF9A9A 100%);
+        }
+
+        .item-icon {
+            font-size: 48px;
+            margin-bottom: 8px;
+        }
+
+        .item-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: rgba(0, 0, 0, 0.85);
+            margin-bottom: 4px;
+        }
+
+        .item-freshness {
+            font-size: 13px;
+            color: rgba(0, 0, 0, 0.6);
+            margin-top: auto;
+        }
+
+        .item-freshness.urgent {
+            color: #D84315;
+            font-weight: 600;
+        }
+
+        .item-quantity {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(0, 0, 0, 0.15);
+            color: rgba(0, 0, 0, 0.7);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        /* CTA Button */
+        .cta-button {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #B9C9ED 0%, #A0B5DC 100%);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(185, 201, 237, 0.4);
+            transition: all 0.2s;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(185, 201, 237, 0.5);
+        }
+
+        .cta-button:active {
+            transform: translateY(0);
+        }
+
+        /* Chat Onboard */
+        .chat-bubble {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 15px;
+            line-height: 1.5;
+            animation: fadeIn 0.25s ease;
+        }
+        .chat-bubble.user {
+            background: linear-gradient(135deg, #9BBBD4, #7AA3C0);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-bubble.assistant {
+            background: white;
+            color: #2C2C26;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .chat-bubble.loading {
+            background: white;
+            color: #999;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .chat-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #F0F4FF;
+            border: 1px solid #D0DCEF;
+            border-radius: 20px;
+            padding: 4px 10px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #2C2C26;
+        }
+
+        /* Receipt Scan */
+        .pantry-container {
+            background: linear-gradient(135deg, #C8A97E 0%, #B8956A 100%);
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        }
+
+        .pantry-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .food-card.grains {
+            background: linear-gradient(135deg, #F5E6C8 0%, #EDD6A8 100%);
+        }
+
+        .food-card.canned {
+            background: linear-gradient(135deg, #D4E8C8 0%, #C0D8A8 100%);
+        }
+
+        /* Quantity Controls */
+        .qty-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+
+        .qty-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(0,0,0,0.12);
+            color: #2C2C26;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+            line-height: 1;
+        }
+
+        .qty-btn:hover { background: rgba(0,0,0,0.22); transform: scale(1.1); }
+        .qty-btn:active { transform: scale(0.95); }
+
+        .qty-value {
+            font-size: 15px;
+            font-weight: 700;
+            color: #2C2C26;
+            min-width: 24px;
+            text-align: center;
+        }
+
+        /* Add new item row */
+        .add-item-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+            align-items: center;
+        }
+
+        .add-item-input {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 14px;
+            border: 2px solid #E0D8CC;
+            font-size: 15px;
+            font-family: inherit;
+            background: white;
+            outline: none;
+            transition: border 0.2s;
+        }
+
+        .add-item-input:focus { border-color: #B9C9ED; }
+
+        .add-item-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            border: none;
+            background: linear-gradient(135deg, #B9C9ED, #A0B5DC);
+            color: white;
+            font-size: 22px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .add-item-btn:hover { transform: scale(1.08); }
+
+        /* Pantry Detail Screen */
+        .pantry-item-card {
+            border-radius: 16px;
+            padding: 14px 16px;
+            background: linear-gradient(135deg, #F5F0E8 0%, #EDE5D8 100%);
+            cursor: default;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            transition: transform 0.2s;
+        }
+
+        .pantry-item-card:hover {
+            transform: scale(1.02);
+        }
+
+        .pantry-item-icon {
+            font-size: 36px;
+        }
+
+        .pantry-item-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2C2C26;
+        }
+
+        .pantry-items-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        /* Meal Suggestions */
+        .meal-card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .meal-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .meal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .meal-icon {
+            font-size: 48px;
+            margin-right: 16px;
+        }
+
+        .meal-info {
+            flex: 1;
+        }
+
+        .meal-name {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2C2C26;
+            margin-bottom: 8px;
+        }
+
+        .meal-badges {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .meal-badge {
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .badge-time {
+            background: #E8F5E9;
+            color: #2E7D32;
+        }
+
+        .badge-ingredients {
+            background: #E3F2FD;
+            color: #1565C0;
+        }
+
+        .badge-urgent {
+            background: #FFF3E0;
+            color: #E65100;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .meal-ingredients {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .ingredient-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .ingredient-check {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .ingredient-missing {
+            color: #999;
+        }
+
+        /* Meal Detail View */
+        .meal-detail {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .meal-detail-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #F5F5F0;
+        }
+
+        .meal-detail-icon {
+            font-size: 64px;
+            margin-right: 20px;
+        }
+
+        .ingredient-list {
+            margin-bottom: 24px;
+        }
+
+        .ingredient-list h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2C2C26;
+            margin-bottom: 12px;
+        }
+
+        .steps-list {
+            margin-bottom: 24px;
+        }
+
+        .steps-list h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2C2C26;
+            margin-bottom: 12px;
+        }
+
+        .step-item {
+            padding: 12px 16px;
+            background: #F5F5F0;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            font-size: 15px;
+            color: #2C2C26;
+        }
+
+        .add-to-tasks-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #B9C9ED 0%, #A0B5DC 100%);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(185, 201, 237, 0.4);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .add-to-tasks-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(185, 201, 237, 0.5);
+        }
+
+        .section-header {
+            background: white;
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #2C2C26;
+            margin-bottom: 4px;
+        }
+
+        .section-subtitle {
+            font-size: 14px;
+            color: #666;
+        }
+        /* Recipe Cards */
+        .recipe-card {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .recipe-card:hover { transform: translateY(-2px); }
+        .recipe-card-img {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+            background: #F0F4FF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+        }
+        .recipe-card-body { padding: 16px; }
+        .recipe-card-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #2C2C26;
+            margin-bottom: 6px;
+        }
+        .recipe-card-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        .recipe-meta-pill {
+            font-size: 12px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            background: #F5F5F0;
+            color: #666;
+            font-weight: 500;
+        }
+        .recipe-have-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #666;
+        }
+        .recipe-have-track {
+            flex: 1;
+            height: 6px;
+            background: #EEE;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .recipe-have-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #B9C9ED, #A0B5DC);
+            border-radius: 3px;
+            transition: width 0.4s;
+        }
+
+        /* Recipe detail */
+        .recipe-detail-hero {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 20px;
+            margin-bottom: 16px;
+            background: #F0F4FF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 64px;
+        }
+        .recipe-section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin: 20px 0 10px;
+        }
+        .recipe-ingredient-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid #F5F5F0;
+            font-size: 15px;
+        }
+        .recipe-step-row {
+            display: flex;
+            gap: 14px;
+            padding: 12px 0;
+            border-bottom: 1px solid #F5F5F0;
+        }
+        .recipe-step-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #B9C9ED, #A0B5DC);
+            color: white;
+            font-size: 13px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        /* Tab active states */
+        .tab-active { color: #B9C9ED !important; }
+        .tab-inactive { color: #CCC !important; }
+
+        /* Auth Screen */
+        .auth-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .auth-card {
+            background: white;
+            border-radius: 24px;
+            padding: 32px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        }
+        .auth-logo {
+            font-size: 48px;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .auth-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2C2C26;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+        .auth-subtitle {
+            font-size: 14px;
+            color: #999;
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        .auth-input {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 2px solid #E0D8CC;
+            font-size: 15px;
+            font-family: inherit;
+            outline: none;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+            transition: border 0.2s;
+        }
+        .auth-input:focus { border-color: #B9C9ED; }
+        .auth-btn {
+            width: 100%;
+            padding: 16px;
+            border-radius: 14px;
+            border: none;
+            background: linear-gradient(135deg, #B9C9ED, #A0B5DC);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 12px;
+            transition: all 0.2s;
+        }
+        .auth-btn:hover { transform: translateY(-1px); }
+        .auth-btn.secondary {
+            background: transparent;
+            color: #B9C9ED;
+            border: 2px solid #B9C9ED;
+        }
+        .auth-error {
+            color: #C62828;
+            font-size: 13px;
+            text-align: center;
+            margin-bottom: 12px;
+            min-height: 18px;
+        }
+        .auth-toggle {
+            text-align: center;
+            font-size: 14px;
+            color: #999;
+        }
+        .auth-toggle span {
+            color: #B9C9ED;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        /* Top bar user pill */
+        .user-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: white;
+            border-radius: 20px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #2C2C26;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- AUTH SCREEN -->
+    <div id="authScreen" class="auth-screen" style="display:none;">
+        <div class="auth-card">
+            <div class="auth-logo">🥦</div>
+            <div class="auth-title">Visual Fridge</div>
+            <div class="auth-subtitle" id="authSubtitle">Sign in to your kitchen</div>
+
+            <div class="auth-error" id="authError"></div>
+
+            <div id="authNameRow" style="display:none;">
+                <input class="auth-input" id="authName" type="text" placeholder="Your name" />
+            </div>
+            <input class="auth-input" id="authEmail" type="email" placeholder="Email" />
+            <input class="auth-input" id="authPassword" type="password" placeholder="Password"
+                onkeydown="if(event.key==='Enter') submitAuth()" />
+
+            <button class="auth-btn" onclick="submitAuth()" id="authSubmitBtn">Sign In</button>
+            <div class="auth-toggle" id="authToggle">
+                No account? <span onclick="toggleAuthMode()">Sign up free</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="appContainer" style="display:none;">
+    <div class="container">
+        <!-- MAIN SCREEN -->
+        <div id="mainScreen" class="screen active">
+            <div class="top-bar">
+                <div class="search-icon">🔍</div>
+                <div id="userPill" class="user-pill" onclick="signOut()">👤 loading…</div>
+                <button onclick="switchTab('recipes')" style="padding:8px 14px;background:linear-gradient(135deg,#B9C9ED,#A0B5DC);color:white;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;">📖 Recipes</button>
+                <div onclick="resetKitchen()" title="Reset everything" style="width:44px;height:44px;background:white;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all 0.2s;" onmouseover="this.style.background='#FFE8E8'" onmouseout="this.style.background='white'">🗑️</div>
+            </div>
+
+            <div class="fridge-container">
+                <div class="section-label">Fridge</div>
+                <div class="fridge-grid">
+                    <div class="food-card fruits" onclick="showCompartment('fruits')">
+                        <div class="card-count" id="cardFruits">x6</div>
+                        <div class="card-icon">🍎</div>
+                        <div class="card-title">Fruits</div>
+                    </div>
+                    <div class="food-card vegetables" onclick="showCompartment('vegetables')">
+                        <div class="card-count" id="cardVegetables">x13</div>
+                        <div class="card-icon">🥕</div>
+                        <div class="card-title">Vegetables</div>
+                    </div>
+                    <div class="food-card dairy" onclick="showCompartment('dairy')">
+                        <div class="card-count" id="cardDairy">x4</div>
+                        <div class="card-icon">🥛</div>
+                        <div class="card-title">Dairy</div>
+                    </div>
+                    <div class="food-card proteins" onclick="showCompartment('proteins')">
+                        <div class="card-count" id="cardProteins">x3</div>
+                        <div class="card-icon">🍗</div>
+                        <div class="card-title">Proteins</div>
+                    </div>
+                    <div class="food-card condiments" onclick="showCompartment('condiments')">
+                        <div class="card-count" id="cardCondiments">x7</div>
+                        <div class="card-icon">🍯</div>
+                        <div class="card-title">Condiments</div>
+                    </div>
+                    <div class="food-card leftovers" onclick="showCompartment('leftovers')">
+                        <div class="card-count" id="cardLeftovers">x2</div>
+                        <div class="card-icon">🍱</div>
+                        <div class="card-title">Leftovers</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="freezer-container">
+                <div class="section-label">Freezer</div>
+                <div class="freezer-grid">
+                    <div class="food-card freezer-card frozen-meals" onclick="showCompartment('frozenMeals')">
+                        <div class="card-count" id="cardFrozenMeals">x4</div>
+                        <div class="card-icon">🍕</div>
+                        <div class="card-title">Frozen Meals & Proteins</div>
+                    </div>
+                    <div class="food-card freezer-card frozen-produce" onclick="showCompartment('frozenProduce')">
+                        <div class="card-count" id="cardFrozenProduce">x7</div>
+                        <div class="card-icon">🫐</div>
+                        <div class="card-title">Frozen Veg & Fruit</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pantry-container">
+                <div class="section-label">Pantry</div>
+                <div class="pantry-grid">
+                    <div class="food-card grains" onclick="showCompartment('grains')">
+                        <div class="card-count" id="cardGrains">x6</div>
+                        <div class="card-icon">🌾</div>
+                        <div class="card-title">Grains & Pasta</div>
+                    </div>
+                    <div class="food-card canned" onclick="showCompartment('canned')">
+                        <div class="card-count" id="cardCanned">x8</div>
+                        <div class="card-icon">🥫</div>
+                        <div class="card-title">Canned Goods</div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="cta-button" onclick="showMealSuggestions()">🍽️ What can I make?</button>
+            <button class="cta-button" style="margin-top:12px;background:linear-gradient(135deg,#9BBBD4,#7AA3C0);" onclick="showChatOnboard()">💬 Tell me what's in your kitchen</button>
+            <button class="cta-button" style="margin-top:12px;background:linear-gradient(135deg,#C8A97E,#B8956A);" onclick="showReceiptScan()">📷 Scan a Receipt</button>
+        </div>
+
+        <!-- RECEIPT SCAN SCREEN -->
+        <div id="receiptScanScreen" class="screen">
+            <div class="top-bar">
+                <div class="back-button" onclick="showMain()">←</div>
+            </div>
+            <div class="section-header">
+                <div class="section-title">📷 Scan Receipt</div>
+                <div class="section-subtitle">Photo your grocery receipt — AI will sort everything automatically</div>
+            </div>
+
+            <div style="background:white;border-radius:20px;padding:24px;box-shadow:0 4px 12px rgba(0,0,0,0.08);margin-bottom:16px;text-align:center;">
+                <img id="receiptPreview" style="display:none;max-width:100%;border-radius:12px;margin-bottom:16px;" />
+
+                <label for="receiptInput" style="display:block;cursor:pointer;">
+                    <div style="border:2px dashed #B9C9ED;border-radius:16px;padding:32px 20px;transition:all 0.2s;" onmouseover="this.style.background='#F0F4FF'" onmouseout="this.style.background='transparent'">
+                        <div style="font-size:48px;margin-bottom:12px;">🧾</div>
+                        <div style="font-weight:600;color:#2C2C26;margin-bottom:6px;">Tap to upload receipt photo</div>
+                        <div style="font-size:13px;color:#999;">Works with photos, screenshots, or scans</div>
+                    </div>
+                    <input id="receiptInput" type="file" accept="image/*" style="display:none;" onchange="handleReceiptUpload(this)" />
+                </label>
+
+                <div id="scanStatus" style="margin-top:16px;font-size:15px;font-weight:500;min-height:24px;"></div>
+            </div>
+
+            <button id="scanDoneBtn" class="cta-button" style="display:none;" onclick="showMain()">✅ Done — View My Fridge</button>
+        </div>
+
+        <!-- CHAT ONBOARD SCREEN -->
+        <div id="chatOnboardScreen" class="screen">
+            <div class="top-bar">
+                <div class="back-button" onclick="showMain()">←</div>
+                <div style="flex:1;text-align:center;font-weight:600;font-size:17px;color:#2C2C26;">What's in your kitchen?</div>
+                <div style="width:44px;"></div>
+            </div>
+
+            <div style="background:white;border-radius:20px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,0.08);margin-bottom:16px;">
+                <div style="font-size:13px;color:#999;margin-bottom:12px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Just talk naturally</div>
+                <div style="font-size:14px;color:#666;line-height:1.6;font-style:italic;">"I've got eggs, some cheddar, a bag of frozen peas, rice, two cans of black beans, leftover soup in the fridge, and a bunch of hot sauce"</div>
+            </div>
+
+            <div id="chatMessages" style="margin-bottom:16px;display:flex;flex-direction:column;gap:12px;"></div>
+
+            <div id="chatAddedPreview" style="display:none;background:white;border-radius:20px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,0.08);margin-bottom:16px;">
+                <div style="font-size:13px;color:#999;margin-bottom:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Added to your kitchen</div>
+                <div id="chatAddedList" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+            </div>
+
+            <div style="display:flex;gap:10px;align-items:flex-end;">
+                <textarea id="chatInput"
+                    placeholder="Tell me what's in your fridge, freezer, or pantry…"
+                    style="flex:1;padding:14px 16px;border-radius:16px;border:2px solid #E0D8CC;font-size:15px;font-family:inherit;resize:none;outline:none;min-height:56px;max-height:160px;line-height:1.5;transition:border 0.2s;"
+                    rows="2"
+                    onfocus="this.style.borderColor='#B9C9ED'"
+                    onblur="this.style.borderColor='#E0D8CC'"
+                    onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage();}"
+                ></textarea>
+                <button onclick="sendChatMessage()" style="width:48px;height:48px;border-radius:14px;border:none;background:linear-gradient(135deg,#9BBBD4,#7AA3C0);color:white;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">↑</button>
+            </div>
+
+            <button id="chatDoneBtn" class="cta-button" style="display:none;margin-top:12px;" onclick="showMain()">✅ Done — View My Kitchen</button>
+        </div>
+
+        <!-- DYNAMIC COMPARTMENT SCREEN (all categories render here) -->
+        <div id="dynamicScreen" class="screen"></div>
+
+        <!-- MEAL SUGGESTIONS SCREEN -->
+        <div id="mealSuggestionsScreen" class="screen">
+            <div class="top-bar">
+                <div class="back-button" onclick="showMain()">←</div>
+                <div class="section-title" style="flex: 1; text-align: center; font-size: 20px; font-weight: 600; color: #2C2C26;">Meal Ideas</div>
+                <div style="width: 44px;"></div>
+            </div>
+
+            <div class="meal-card" onclick="showMealDetail('tacos')">
+                <div class="meal-header">
+                    <div class="meal-icon">🌮</div>
+                    <div class="meal-info">
+                        <div class="meal-name">Quick Chicken Tacos</div>
+                        <div class="meal-badges">
+                            <span class="meal-badge badge-time">10 min</span>
+                            <span class="meal-badge badge-ingredients">5/5 ✓</span>
+                            <span class="meal-badge badge-urgent">⚠️ Uses expiring items</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="meal-ingredients">
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Chicken breast
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Tomatoes (expiring today!)
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Lettuce
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Cheese
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Salsa
+                    </div>
+                </div>
+            </div>
+
+            <div class="meal-card" onclick="showMealDetail('stirfry')">
+                <div class="meal-header">
+                    <div class="meal-icon">🥘</div>
+                    <div class="meal-info">
+                        <div class="meal-name">Veggie Stir-Fry</div>
+                        <div class="meal-badges">
+                            <span class="meal-badge badge-time">15 min</span>
+                            <span class="meal-badge badge-ingredients">5/6 ✓</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="meal-ingredients">
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Broccoli
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Carrots
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Bell pepper
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Chicken breast
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Soy sauce
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-missing">○</span> Rice (pantry)
+                    </div>
+                </div>
+            </div>
+
+            <div class="meal-card" onclick="showMealDetail('eggs')">
+                <div class="meal-header">
+                    <div class="meal-icon">🍳</div>
+                    <div class="meal-info">
+                        <div class="meal-name">Scrambled Eggs & Veggies</div>
+                        <div class="meal-badges">
+                            <span class="meal-badge badge-time">5 min</span>
+                            <span class="meal-badge badge-ingredients">4/4 ✓</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="meal-ingredients">
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Eggs
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Bell pepper
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Tomatoes
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Cheese
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MEAL DETAIL SCREEN (Tacos) -->
+        <div id="mealDetailTacos" class="screen">
+            <div class="top-bar">
+                <div class="back-button" onclick="showMealSuggestions()">←</div>
+                <div style="flex: 1;"></div>
+            </div>
+
+            <div class="meal-detail">
+                <div class="meal-detail-header">
+                    <div class="meal-detail-icon">🌮</div>
+                    <div>
+                        <div class="meal-name">Quick Chicken Tacos</div>
+                        <div class="meal-badges">
+                            <span class="meal-badge badge-time">10 min</span>
+                            <span class="meal-badge badge-urgent">⚠️ Uses expiring items</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ingredient-list">
+                    <h3>Ingredients You Have:</h3>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Chicken breast (3 pieces)
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Tomatoes (13 - expiring today!)
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Lettuce (1 head)
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Cheese
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Salsa
+                    </div>
+                </div>
+
+                <div class="steps-list">
+                    <h3>Quick Steps:</h3>
+                    <div class="step-item">1. Cook chicken in pan (5 min)</div>
+                    <div class="step-item">2. Chop tomatoes and lettuce</div>
+                    <div class="step-item">3. Warm tortillas</div>
+                    <div class="step-item">4. Assemble tacos</div>
+                </div>
+
+                <button class="add-to-tasks-btn">
+                    ⭐ Add to Tasks
+                    <span style="font-size: 14px; opacity: 0.9;">(breaks into micro-steps)</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- MEAL DETAIL SCREEN (Stir-Fry) -->
+        <div id="mealDetailStirfry" class="screen">
+            <div class="top-bar">
+                <div class="back-button" onclick="showMealSuggestions()">←</div>
+                <div style="flex: 1;"></div>
+            </div>
+
+            <div class="meal-detail">
+                <div class="meal-detail-header">
+                    <div class="meal-detail-icon">🥘</div>
+                    <div>
+                        <div class="meal-name">Veggie Stir-Fry</div>
+                        <div class="meal-badges">
+                            <span class="meal-badge badge-time">15 min</span>
+                            <span class="meal-badge badge-ingredients">5/6 ✓</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ingredient-list">
+                    <h3>Ingredients You Have:</h3>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Broccoli (1 head)
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Carrots (3)
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Bell pepper (2)
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Chicken breast (3 pieces)
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Soy sauce
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Rice (in pantry)
+                    </div>
+                </div>
+
+                <div class="steps-list">
+                    <h3>Quick Steps:</h3>
+                    <div class="step-item">1. Chop all vegetables</div>
+                    <div class="step-item">2. Cut chicken into strips</div>
+                    <div class="step-item">3. Heat oil in wok/pan</div>
+                    <div class="step-item">4. Cook chicken first (3 min)</div>
+                    <div class="step-item">5. Add veggies and stir-fry (5 min)</div>
+                    <div class="step-item">6. Add soy sauce to taste</div>
+                </div>
+
+                <button class="add-to-tasks-btn">
+                    ⭐ Add to Tasks
+                    <span style="font-size: 14px; opacity: 0.9;">(breaks into micro-steps)</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- MEAL DETAIL SCREEN (Eggs) -->
+        <div id="mealDetailEggs" class="screen">
+            <div class="top-bar">
+                <div class="back-button" onclick="showMealSuggestions()">←</div>
+                <div style="flex: 1;"></div>
+            </div>
+
+            <div class="meal-detail">
+                <div class="meal-detail-header">
+                    <div class="meal-detail-icon">🍳</div>
+                    <div>
+                        <div class="meal-name">Scrambled Eggs & Veggies</div>
+                        <div class="meal-badges">
+                            <span class="meal-badge badge-time">5 min</span>
+                            <span class="meal-badge badge-ingredients">4/4 ✓</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ingredient-list">
+                    <h3>Ingredients You Have:</h3>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Eggs (12)
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Bell pepper (2)
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Tomatoes (13)
+                    </div>
+                    <div class="ingredient-item">
+                        <span class="ingredient-check">✓</span> Cheese
+                    </div>
+                </div>
+
+                <div class="steps-list">
+                    <h3>Quick Steps:</h3>
+                    <div class="step-item">1. Chop bell pepper and tomatoes</div>
+                    <div class="step-item">2. Crack 3 eggs into bowl and whisk</div>
+                    <div class="step-item">3. Heat pan with butter</div>
+                    <div class="step-item">4. Add veggies, cook 1 min</div>
+                    <div class="step-item">5. Pour in eggs, scramble gently</div>
+                    <div class="step-item">6. Top with cheese</div>
+                </div>
+
+                <button class="add-to-tasks-btn">
+                    ⭐ Add to Tasks
+                    <span style="font-size: 14px; opacity: 0.9;">(breaks into micro-steps)</span>
+                </button>
+            </div>
+        </div>
+    </div> <!-- end .container -->
+
+        <!-- RECIPES TAB CONTENT -->
+        <div id="recipesTab" style="display:none; padding-bottom: 80px;">
+
+            <!-- RECIPES MAIN -->
+            <div id="recipesMain" class="screen active">
+                <div class="top-bar">
+                    <div class="back-button" onclick="switchTab('fridge')">←</div>
+                    <div style="font-size:22px;font-weight:700;color:#2C2C26;flex:1;">📖 My Recipes</div>
+                    <div id="addRecipeBtn" onclick="showAddRecipe()" style="width:44px;height:44px;background:linear-gradient(135deg,#B9C9ED,#A0B5DC);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;box-shadow:0 2px 8px rgba(185,201,237,0.4);">+</div>
+                </div>
+
+                <!-- Filter chips -->
+                <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
+                    <div class="filter-chip active" id="rfAll" onclick="filterRecipes('all')">All</div>
+                    <div class="filter-chip" id="rfFav" onclick="filterRecipes('favorites')">❤️ Favorites</div>
+                    <div class="filter-chip" id="rfWant" onclick="filterRecipes('want')">🔖 Want to Cook</div>
+                </div>
+
+                <!-- Empty state -->
+                <div id="recipesEmpty" style="text-align:center;padding:48px 20px;background:white;border-radius:20px;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
+                    <div style="font-size:56px;margin-bottom:16px;">📖</div>
+                    <div style="font-size:18px;font-weight:600;color:#2C2C26;margin-bottom:8px;">No recipes yet</div>
+                    <div style="font-size:14px;color:#999;margin-bottom:24px;">Paste a blog URL or photo a cookbook page to get started</div>
+                    <button class="cta-button" style="max-width:240px;margin:0 auto;" onclick="showAddRecipe()">+ Add your first recipe</button>
+                </div>
+
+                <!-- Recipe cards list -->
+                <div id="recipesList" style="display:flex;flex-direction:column;gap:14px;"></div>
+            </div>
+
+            <!-- ADD RECIPE SCREEN -->
+            <div id="addRecipeScreen" class="screen">
+                <div class="top-bar">
+                    <div class="back-button" onclick="showRecipesMain()">←</div>
+                    <div style="flex:1;text-align:center;font-weight:600;font-size:17px;color:#2C2C26;">Add Recipe</div>
+                    <div style="width:44px;"></div>
+                </div>
+
+                <!-- URL Import -->
+                <div style="background:white;border-radius:20px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,0.08);margin-bottom:16px;">
+                    <div style="font-size:13px;font-weight:600;color:#999;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:12px;">From a Blog URL</div>
+                    <div style="font-size:13px;color:#aaa;margin-bottom:10px;">Budget Bytes, Smitten Kitchen, or any recipe site</div>
+                    <div style="display:flex;gap:10px;">
+                        <input id="recipeUrlInput" class="add-item-input" placeholder="Paste recipe URL…" style="flex:1;" />
+                        <button onclick="importFromUrl()" class="add-item-btn" style="background:linear-gradient(135deg,#B9C9ED,#A0B5DC);">→</button>
+                    </div>
+                    <div id="urlImportStatus" style="margin-top:10px;font-size:13px;font-weight:500;min-height:18px;"></div>
+                </div>
+
+                <!-- Photo Import -->
+                <div style="background:white;border-radius:20px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,0.08);margin-bottom:16px;">
+                    <div style="font-size:13px;font-weight:600;color:#999;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:12px;">From a Cookbook Photo</div>
+                    <label for="cookbookPhotoInput" style="display:block;cursor:pointer;">
+                        <div id="photoDropzone" style="border:2px dashed #C8A97E;border-radius:16px;padding:28px 20px;text-align:center;transition:all 0.2s;" onmouseover="this.style.background='#FDF6EE'" onmouseout="this.style.background='transparent'">
+                            <div style="font-size:40px;margin-bottom:10px;">📸</div>
+                            <div style="font-weight:600;color:#2C2C26;margin-bottom:4px;">Tap to photo a cookbook page</div>
+                            <div style="font-size:13px;color:#999;">AI will read and extract the recipe</div>
+                        </div>
+                        <input id="cookbookPhotoInput" type="file" accept="image/*" style="display:none;" onchange="importFromPhoto(this)" />
+                    </label>
+                    <div id="photoImportStatus" style="margin-top:10px;font-size:13px;font-weight:500;min-height:18px;"></div>
+                </div>
+            </div>
+
+            <!-- RECIPE DETAIL SCREEN -->
+            <div id="recipeDetailScreen" class="screen">
+                <div class="top-bar">
+                    <div class="back-button" onclick="showRecipesMain()">←</div>
+                    <div style="flex:1;"></div>
+                    <div id="recipeFavBtn" onclick="toggleRecipeFav()" style="font-size:24px;cursor:pointer;padding:8px;">🤍</div>
+                    <div id="recipeWantBtn" onclick="toggleRecipeWant()" style="font-size:20px;cursor:pointer;padding:8px;background:white;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.08);">🔖</div>
+                </div>
+                <div id="recipeDetailContent"></div>
+            </div>
+        </div>
+
+        <!-- BOTTOM TAB BAR -->
+        <div id="tabBar" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:white;border-top:1px solid #EEE;z-index:100;padding:8px 0 env(safe-area-inset-bottom);">
+            <div style="display:flex;">
+                <div id="tabFridge" onclick="switchTab('fridge')" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px;cursor:pointer;transition:all 0.15s;">
+                    <div style="font-size:22px;">🥦</div>
+                    <div style="font-size:11px;font-weight:600;color:#B9C9ED;">Fridge</div>
+                </div>
+                <div id="tabRecipes" onclick="switchTab('recipes')" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px;cursor:pointer;transition:all 0.15s;">
+                    <div style="font-size:22px;">📖</div>
+                    <div style="font-size:11px;font-weight:600;color:#999;">Recipes</div>
+                </div>
+            </div>
+        </div>
+
+    </div> <!-- end #appContainer -->
+
+    <script>
+        // ── SUPABASE INIT ────────────────────────────────────────────────────
+        const SUPABASE_URL  = 'https://qgckayeaguosfrfqfsig.supabase.co'
+        const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnY2theWVhZ3Vvc2ZyZnFmc2lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMjg4MDEsImV4cCI6MjA4ODYwNDgwMX0.fkKVWA0htproghrZzRyCWW4FonooC2Ls-epqdV0n-ZU'
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+
+        let currentUser = null
+        let authMode = 'signin' // 'signin' | 'signup'
+
+        // ── AUTH FLOW ────────────────────────────────────────────────────────
+        function toggleAuthMode() {
+            authMode = authMode === 'signin' ? 'signup' : 'signin'
+            const isSignUp = authMode === 'signup'
+            document.getElementById('authSubtitle').textContent = isSignUp ? 'Create your kitchen' : 'Sign in to your kitchen'
+            document.getElementById('authSubmitBtn').textContent = isSignUp ? 'Sign Up' : 'Sign In'
+            document.getElementById('authNameRow').style.display = isSignUp ? 'block' : 'none'
+            document.getElementById('authToggle').innerHTML = isSignUp
+                ? 'Already have an account? <span onclick="toggleAuthMode()">Sign in</span>'
+                : 'No account? <span onclick="toggleAuthMode()">Sign up free</span>'
+            document.getElementById('authError').textContent = ''
+        }
+
+        async function submitAuth() {
+            const email    = document.getElementById('authEmail').value.trim()
+            const password = document.getElementById('authPassword').value
+            const name     = document.getElementById('authName').value.trim()
+            const errEl    = document.getElementById('authError')
+            const btn      = document.getElementById('authSubmitBtn')
+
+            if (!email || !password) { errEl.textContent = 'Email and password required'; return }
+
+            btn.textContent = '...'
+            btn.disabled = true
+            errEl.textContent = ''
+
+            try {
+                if (authMode === 'signup') {
+                    const { error } = await sb.auth.signUp({
+                        email, password,
+                        options: { data: { name: name || email.split('@')[0] } }
+                    })
+                    if (error) throw error
+                    errEl.style.color = '#2E7D32'
+                    errEl.textContent = '✅ Check your email to confirm!'
+                } else {
+                    const { error } = await sb.auth.signInWithPassword({ email, password })
+                    if (error) throw error
+                }
+            } catch (err) {
+                errEl.style.color = '#C62828'
+                errEl.textContent = err.message
+                btn.textContent = authMode === 'signup' ? 'Sign Up' : 'Sign In'
+                btn.disabled = false
+            }
+        }
+
+        async function signOut() {
+            await sb.auth.signOut()
+        }
+
+        // ── AUTH STATE LISTENER ───────────────────────────────────────────────
+        sb.auth.onAuthStateChange(async (_event, session) => {
+            currentUser = session?.user ?? null
+            if (currentUser) {
+                document.getElementById('authScreen').style.display = 'none'
+                document.getElementById('appContainer').style.display = 'block'
+                // Show user name in top bar
+                const name = currentUser.user_metadata?.name || currentUser.email.split('@')[0]
+                const pill = document.getElementById('userPill')
+                if (pill) pill.innerHTML = `👤 ${name} <span style="font-size:11px;opacity:0.6;margin-left:4px;">sign out</span>`
+                // Load their saved inventory
+                await loadInventoryFromDB()
+                showTabBar()
+            } else {
+                document.getElementById('authScreen').style.display = 'flex'
+                document.getElementById('appContainer').style.display = 'none'
+            }
+        })
+
+        // ── INVENTORY PERSISTENCE ─────────────────────────────────────────────
+        async function loadInventoryFromDB() {
+            if (!currentUser) return
+            try {
+                const { data, error } = await sb
+                    .from('inventory_items')
+                    .select('*')
+                    .order('created_at', { ascending: true })
+                if (error) throw error
+
+                // Clear local state and refill from DB
+                for (const key of Object.keys(compartments)) {
+                    compartments[key].items = []
+                }
+                for (const row of data) {
+                    if (compartments[row.compartment]) {
+                        compartments[row.compartment].items.push({
+                            _id: row.id,
+                            icon: row.icon,
+                            name: row.name,
+                            qty: row.qty,
+                            unit: row.unit || undefined
+                        })
+                    }
+                }
+                updateAllCardCounts()
+            } catch (err) {
+                console.error('Error loading inventory:', err)
+            }
+        }
+
+        async function saveItemToDB(compartment, item) {
+            if (!currentUser) return null
+            try {
+                const { data, error } = await sb
+                    .from('inventory_items')
+                    .insert({
+                        user_id: currentUser.id,
+                        compartment,
+                        name: item.name,
+                        icon: item.icon || '🍽️',
+                        qty: item.qty || 1,
+                        unit: item.unit || null
+                    })
+                    .select().single()
+                if (error) throw error
+                return data.id
+            } catch (err) {
+                console.error('Error saving item:', err)
+                return null
+            }
+        }
+
+        async function updateItemQtyInDB(id, qty) {
+            if (!currentUser || !id) return
+            try {
+                if (qty <= 0) {
+                    await sb.from('inventory_items').delete().eq('id', id)
+                } else {
+                    await sb.from('inventory_items').update({ qty }).eq('id', id)
+                }
+            } catch (err) {
+                console.error('Error updating qty:', err)
+            }
+        }
+
+        async function bulkSaveItemsToDB(items) {
+            if (!currentUser) return
+            try {
+                const rows = items.map(item => ({
+                    user_id: currentUser.id,
+                    compartment: item.compartment,
+                    name: item.name,
+                    icon: item.icon || '🍽️',
+                    qty: item.qty || 1,
+                    unit: item.unit || null
+                }))
+                const { data, error } = await sb
+                    .from('inventory_items')
+                    .insert(rows)
+                    .select()
+                if (error) throw error
+                // Attach DB ids back to local items
+                if (data) {
+                    for (const row of data) {
+                        const comp = compartments[row.compartment]
+                        if (comp) {
+                            const local = comp.items.find(i => i.name === row.name && !i._id)
+                            if (local) local._id = row.id
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error bulk saving:', err)
+            }
+        }
+
+        // ── EMOJI LOOKUP ─────────────────────────────────────────────────────
+        const emojiMap = {
+            // Vegetables
+            carrot:'🥕', carrots:'🥕', broccoli:'🥦', tomato:'🍅', tomatoes:'🍅',
+            pepper:'🫑', peppers:'🫑', 'bell pepper':'🫑', lettuce:'🥬', onion:'🧅',
+            onions:'🧅', garlic:'🧄', potato:'🥔', potatoes:'🥔', cucumber:'🥒',
+            spinach:'🥬', kale:'🥬', celery:'🥬', corn:'🌽', mushroom:'🍄', mushrooms:'🍄',
+            zucchini:'🥒', squash:'🥒', asparagus:'🥦', peas:'🫛', edamame:'🫛',
+            // Fruits
+            apple:'🍎', apples:'🍎', lemon:'🍋', lemons:'🍋', lime:'🍋', banana:'🍌',
+            bananas:'🍌', orange:'🍊', oranges:'🍊', strawberry:'🍓', strawberries:'🍓',
+            blueberry:'🫐', blueberries:'🫐', grape:'🍇', grapes:'🍇', mango:'🥭',
+            peach:'🍑', pear:'🍐', pineapple:'🍍', watermelon:'🍉', cherry:'🍒',
+            // Proteins
+            chicken:'🍗', 'chicken breast':'🍗', beef:'🥩', 'ground beef':'🥩',
+            steak:'🥩', pork:'🥩', bacon:'🥓', ham:'🥓', turkey:'🍗', salmon:'🐟',
+            fish:'🐟', tuna:'🐟', shrimp:'🍤', egg:'🥚', eggs:'🥚', tofu:'🧊',
+            // Dairy
+            milk:'🥛', cheese:'🧀', butter:'🧈', yogurt:'🥛', cream:'🥛',
+            'sour cream':'🥛', 'cream cheese':'🧀', parmesan:'🧀', mozzarella:'🧀',
+            // Condiments & Sauces
+            salsa:'🫙', 'hot sauce':'🌶️', 'soy sauce':'🍶', ketchup:'🍅',
+            mustard:'🫙', mayo:'🫙', mayonnaise:'🫙', vinegar:'🫙', oil:'🫙',
+            'olive oil':'🫙', honey:'🍯', sauce:'🫙',
+            // Grains & Pasta
+            rice:'🍚', pasta:'🍝', spaghetti:'🍝', penne:'🍝', noodles:'🍜',
+            bread:'🍞', oats:'🌾', flour:'🌾', quinoa:'🌾', lentils:'🫘',
+            breadcrumbs:'🍞', tortilla:'🫓', tortillas:'🫓', crackers:'🍘',
+            // Canned
+            'diced tomatoes':'🍅', 'black beans':'🫘', chickpeas:'🫘', beans:'🫘',
+            'canned corn':'🌽', 'chicken broth':'🍲', broth:'🍲', 'coconut milk':'🥥',
+            'canned mushrooms':'🍄', soup:'🍲',
+            // Frozen
+            pizza:'🍕', burrito:'🌯', burritos:'🌯', 'ice cream':'🍦',
+            // Drinks
+            juice:'🧃', coffee:'☕', tea:'🍵', water:'💧', beer:'🍺', wine:'🍷',
+            // Snacks
+            chips:'🍟', popcorn:'🍿', nuts:'🥜', peanut:'🥜', almonds:'🥜',
+            chocolate:'🍫', cookie:'🍪', cookies:'🍪',
+        };
+
+        function getEmoji(name) {
+            const lower = name.toLowerCase().trim();
+            if (emojiMap[lower]) return emojiMap[lower];
+            // partial match
+            for (const [key, emoji] of Object.entries(emojiMap)) {
+                if (lower.includes(key) || key.includes(lower)) return emoji;
+            }
+            return '🍽️';
+        }
+
+        // ── DATA STORE ──────────────────────────────────────────────────────
+        const compartments = {
+            vegetables: {
+                title: '🥕 Vegetables', subtitle: 'items in your fridge',
+                type: 'fridge',
+                items: [
+                    { icon:'🥕', name:'Carrots',     qty:3 },
+                    { icon:'🥦', name:'Broccoli',    qty:1 },
+                    { icon:'🍅', name:'Tomatoes',    qty:13 },
+                    { icon:'🫑', name:'Bell Pepper', qty:2 },
+                    { icon:'🥬', name:'Lettuce',     qty:1 },
+                    { icon:'🧅', name:'Onion',       qty:2 },
+                ]
+            },
+            proteins: {
+                title: '🍗 Proteins', subtitle: 'items in your fridge',
+                type: 'fridge',
+                items: [
+                    { icon:'🍗', name:'Chicken Breast', qty:3, unit:'pieces' },
+                    { icon:'🥩', name:'Ground Beef',    qty:1, unit:'lb' },
+                    { icon:'🥓', name:'Bacon',          qty:6 },
+                ]
+            },
+            fruits: {
+                title: '🍎 Fruits', subtitle: 'items in your fridge',
+                type: 'fridge',
+                items: [
+                    { icon:'🍎', name:'Apple',  qty:4 },
+                    { icon:'🍋', name:'Lemon',  qty:2 },
+                ]
+            },
+            dairy: {
+                title: '🧀 Dairy', subtitle: 'items in your fridge',
+                type: 'fridge',
+                items: [
+                    { icon:'🥚', name:'Eggs',   qty:12 },
+                    { icon:'🧀', name:'Cheese', qty:1, unit:'block' },
+                    { icon:'🥛', name:'Milk',   qty:1, unit:'jug' },
+                    { icon:'🧈', name:'Butter', qty:1, unit:'stick' },
+                ]
+            },
+            condiments: {
+                title: '🍯 Condiments', subtitle: 'items in your fridge',
+                type: 'fridge',
+                items: [
+                    { icon:'🫙', name:'Salsa',     qty:1, unit:'jar' },
+                    { icon:'🌶️', name:'Hot Sauce', qty:1, unit:'bottle' },
+                    { icon:'🍶', name:'Soy Sauce', qty:1, unit:'bottle' },
+                    { icon:'🧄', name:'Garlic', qty:1, unit:'head' },
+                ]
+            },
+            leftovers: {
+                title: '🍱 Leftovers', subtitle: 'items in your fridge',
+                type: 'fridge',
+                items: [
+                    { icon:'🍱', name:'Leftover Rice', qty:1, unit:'container' },
+                    { icon:'🥡', name:'Takeout Soup',  qty:1, unit:'container' },
+                ]
+            },
+            frozenMeals: {
+                title: '🍕 Frozen Meals & Proteins', subtitle: 'items in your freezer',
+                type: 'freezer',
+                items: [
+                    { icon:'🍕', name:'Frozen Pizza',    qty:2 },
+                    { icon:'🌯', name:'Frozen Burritos', qty:4 },
+                    { icon:'🐔', name:'Frozen Chicken',  qty:1, unit:'bag' },
+                    { icon:'🍤', name:'Fish Sticks',     qty:1, unit:'box' },
+                ]
+            },
+            frozenProduce: {
+                title: '🫐 Frozen Veg & Fruit', subtitle: 'items in your freezer',
+                type: 'freezer',
+                items: [
+                    { icon:'🫐', name:'Blueberries',     qty:1, unit:'bag' },
+                    { icon:'🥦', name:'Frozen Broccoli', qty:1, unit:'bag' },
+                    { icon:'🌽', name:'Frozen Corn',     qty:1, unit:'bag' },
+                    { icon:'🫛', name:'Edamame',         qty:1, unit:'bag' },
+                ]
+            },
+            grains: {
+                title: '🌾 Grains & Pasta', subtitle: 'items in your pantry',
+                type: 'pantry',
+                items: [
+                    { icon:'🍚', name:'White Rice',  qty:1, unit:'bag' },
+                    { icon:'🍝', name:'Spaghetti',   qty:1, unit:'box' },
+                    { icon:'🍝', name:'Penne',       qty:1, unit:'box' },
+                    { icon:'🌾', name:'Oats',        qty:1, unit:'container' },
+                    { icon:'🍞', name:'Breadcrumbs', qty:1, unit:'box' },
+                    { icon:'🫘', name:'Lentils',     qty:1, unit:'bag' },
+                ]
+            },
+            canned: {
+                title: '🥫 Canned Goods', subtitle: 'items in your pantry',
+                type: 'pantry',
+                items: [
+                    { icon:'🍅', name:'Diced Tomatoes',   qty:2, unit:'can' },
+                    { icon:'🫘', name:'Black Beans',      qty:2, unit:'can' },
+                    { icon:'🫘', name:'Chickpeas',        qty:1, unit:'can' },
+                    { icon:'🌽', name:'Canned Corn',     qty:1, unit:'can' },
+                    { icon:'🐟', name:'Tuna',            qty:2, unit:'can' },
+                    { icon:'🍲', name:'Chicken Broth',   qty:1, unit:'carton' },
+                    { icon:'🥣', name:'Coconut Milk',    qty:1, unit:'can' },
+                    { icon:'🍄', name:'Canned Mushrooms',qty:1, unit:'can' },
+                ]
+            }
+        };
+
+        // ── SCREEN MANAGEMENT ───────────────────────────────────────────────
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+        function showMain() {
+            updateAllCardCounts();
+            showScreen('mainScreen');
+        }
+        function showMealSuggestions() { showScreen('mealSuggestionsScreen'); }
+        function showMealDetail(mealType) {
+            const map = { tacos:'mealDetailTacos', stirfry:'mealDetailStirfry', eggs:'mealDetailEggs' };
+            showScreen(map[mealType]);
+        }
+
+        // ── RENDER DETAIL SCREEN ────────────────────────────────────────────
+        function showCompartment(key) {
+            const data = compartments[key];
+            const screen = document.getElementById('dynamicScreen');
+
+            screen.innerHTML = `
+                <div class="top-bar">
+                    <div class="back-button" onclick="showMain()">←</div>
+                </div>
+                <div class="section-header">
+                    <div class="section-title">${data.title}</div>
+                    <div class="section-subtitle" id="dynSubtitle"></div>
+                </div>
+                <div id="dynItemList" class="${data.type === 'pantry' ? 'pantry-items-list' : 'items-grid'}"></div>
+                <div class="add-item-row">
+                    <input class="add-item-input" id="newItemInput" placeholder="Add new item…" />
+                    <button class="add-item-btn" onclick="addItem('${key}')">+</button>
+                </div>
+                <button class="cta-button" onclick="showMealSuggestions()">🍽️ What can I make?</button>
+            `;
+
+            screen.querySelector('#newItemInput').addEventListener('keydown', e => {
+                if (e.key === 'Enter') addItem(key);
+            });
+
+            renderItems(key);
+            showScreen('dynamicScreen');
+        }
+
+        function renderItems(key) {
+            const data = compartments[key];
+            const isPantry = data.type === 'pantry';
+            const list = document.getElementById('dynItemList');
+            if (!list) return;
+
+            if (isPantry) {
+                list.innerHTML = data.items.map((item, idx) => `
+                    <div class="pantry-item-card">
+                        <div class="pantry-item-icon">${item.icon}</div>
+                        <div class="pantry-item-name">${item.name}</div>
+                        <div class="qty-controls">
+                            <button class="qty-btn" onclick="changeQty('${key}',${idx},-1)">−</button>
+                            <div class="qty-value">${item.qty}${item.unit ? ' '+item.unit : ''}</div>
+                            <button class="qty-btn" onclick="changeQty('${key}',${idx},1)">+</button>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                list.innerHTML = data.items.map((item, idx) => `
+                    <div class="item-card fresh">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+                            <div style="font-size:36px;">${item.icon}</div>
+                            <div class="qty-controls" style="margin-left:0">
+                                <button class="qty-btn" onclick="changeQty('${key}',${idx},-1)">−</button>
+                                <div class="qty-value">${item.qty}${item.unit ? ' '+item.unit : ''}</div>
+                                <button class="qty-btn" onclick="changeQty('${key}',${idx},1)">+</button>
+                            </div>
+                        </div>
+                        <div class="item-name">${item.name}</div>
+                    </div>`
+                ).join('');
+            }
+
+            const sub = document.getElementById('dynSubtitle');
+            if (sub) sub.textContent = `${data.items.length} ${data.subtitle}`;
+        }
+
+        // ── QTY CHANGE ──────────────────────────────────────────────────────
+        function changeQty(key, idx, delta) {
+            const item = compartments[key].items[idx];
+            item.qty = Math.max(0, item.qty + delta);
+            if (item.qty === 0) {
+                if (confirm(`Remove "${item.name}"?`)) {
+                    updateItemQtyInDB(item._id, 0);
+                    compartments[key].items.splice(idx, 1);
+                } else {
+                    item.qty = 1;
+                }
+            } else {
+                updateItemQtyInDB(item._id, item.qty);
+            }
+            renderItems(key);
+            updateAllCardCounts();
+        }
+
+        // ── ADD ITEM ────────────────────────────────────────────────────────
+        async function addItem(key) {
+            const input = document.getElementById('newItemInput');
+            const name = input.value.trim();
+            if (!name) return;
+            const newItem = { icon: getEmoji(name), name, qty: 1 };
+            compartments[key].items.push(newItem);
+            input.value = '';
+            renderItems(key);
+            updateAllCardCounts();
+            // Persist to DB and attach id
+            const id = await saveItemToDB(key, newItem);
+            if (id) newItem._id = id;
+        }
+
+        // ── UPDATE MAIN CARD COUNTS ──────────────────────────────────────────
+        function updateAllCardCounts() {
+            const cardMap = {
+                vegetables:'cardVegetables', proteins:'cardProteins', fruits:'cardFruits',
+                dairy:'cardDairy', condiments:'cardCondiments', leftovers:'cardLeftovers',
+                frozenMeals:'cardFrozenMeals', frozenProduce:'cardFrozenProduce',
+                grains:'cardGrains', canned:'cardCanned'
+            };
+            for (const [key, cardId] of Object.entries(cardMap)) {
+                const el = document.getElementById(cardId);
+                if (el) el.textContent = 'x' + compartments[key].items.reduce((s,i)=>s+i.qty,0);
+            }
+        }
+
+        // ── RESET ────────────────────────────────────────────────────────────
+        async function resetKitchen() {
+            if (!confirm('Clear everything from your fridge, freezer, and pantry?')) return;
+            for (const key of Object.keys(compartments)) {
+                compartments[key].items = [];
+            }
+            updateAllCardCounts();
+            if (currentUser) {
+                await sb.from('inventory_items').delete().eq('user_id', currentUser.id);
+            }
+        }
+
+        // ── CHAT ONBOARD ─────────────────────────────────────────────────────
+        let chatHistory = [];
+
+        function showChatOnboard() {
+            chatHistory = [];
+            document.getElementById('chatMessages').innerHTML = '';
+            document.getElementById('chatAddedPreview').style.display = 'none';
+            document.getElementById('chatAddedList').innerHTML = '';
+            document.getElementById('chatDoneBtn').style.display = 'none';
+            document.getElementById('chatInput').value = '';
+
+            // Initial greeting
+            appendBubble('assistant', "Hey! Just tell me what you've got — anything in your fridge, freezer, or pantry. Don't worry about categories, I'll figure it out. 🥦");
+            showScreen('chatOnboardScreen');
+            setTimeout(() => document.getElementById('chatInput').focus(), 300);
+        }
+
+        function appendBubble(role, text) {
+            const el = document.createElement('div');
+            el.className = `chat-bubble ${role}`;
+            el.textContent = text;
+            document.getElementById('chatMessages').appendChild(el);
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            return el;
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            input.value = '';
+            input.style.height = 'auto';
+            appendBubble('user', text);
+
+            const loadingBubble = appendBubble('loading', '…');
+
+            chatHistory.push({ role: 'user', content: text });
+
+            try {
+                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: 'claude-sonnet-4-20250514',
+                        max_tokens: 1000,
+                        system: `You are a friendly kitchen assistant helping someone set up their Visual Fridge app. 
+Your job is to listen to what they describe having in their kitchen and extract food items.
+
+After each message, respond with:
+1. A SHORT warm acknowledgment (1 sentence max, casual, no lists)
+2. Then IMMEDIATELY a JSON block on its own line like: ITEMS: [...]
+
+The JSON array should contain objects: {"name":"item name","compartment":"key","qty":1}
+
+Valid compartment keys: vegetables, fruits, proteins, dairy, condiments, leftovers, frozenMeals, frozenProduce, grains, canned
+
+Rules:
+- Only extract actual food items
+- If they say "a few" use qty:3, "some" use qty:2, "a bunch" use qty:4, specific number = that number
+- If they mention more items in follow-up messages, extract those too
+- If nothing food-related, just chat warmly and set ITEMS: []
+- Keep acknowledgments short and human, like texting a friend`,
+                        messages: chatHistory
+                    })
+                });
+
+                const data = await response.json();
+                const fullText = data.content.find(b => b.type === 'text')?.text || '';
+
+                // Split response and ITEMS json
+                const itemsMatch = fullText.match(/ITEMS:\s*(\[[\s\S]*?\])/);
+                const chatText = fullText.replace(/ITEMS:\s*\[[\s\S]*?\]/, '').trim();
+
+                loadingBubble.className = 'chat-bubble assistant';
+                loadingBubble.textContent = chatText || "Got it!";
+
+                chatHistory.push({ role: 'assistant', content: fullText });
+
+                if (itemsMatch) {
+                    const items = JSON.parse(itemsMatch[1]);
+                    if (items.length > 0) {
+                        populateFromChat(items);
+                    }
+                }
+
+                // Show done button after first successful exchange
+                document.getElementById('chatDoneBtn').style.display = 'block';
+
+            } catch (err) {
+                loadingBubble.className = 'chat-bubble assistant';
+                loadingBubble.textContent = "Hmm, something went wrong. Try again?";
+                console.error(err);
+            }
+        }
+
+        function populateFromChat(items) {
+            const addedList = document.getElementById('chatAddedList');
+            const preview = document.getElementById('chatAddedPreview');
+            const dbItems = [];
+
+            for (const item of items) {
+                const key = item.compartment;
+                if (!compartments[key]) continue;
+                const existing = compartments[key].items.find(i =>
+                    i.name.toLowerCase() === item.name.toLowerCase()
+                );
+                if (existing) {
+                    existing.qty += (item.qty || 1);
+                    updateItemQtyInDB(existing._id, existing.qty);
+                } else {
+                    const newItem = { icon: getEmoji(item.name), name: item.name, qty: item.qty || 1 };
+                    compartments[key].items.push(newItem);
+                    dbItems.push({ ...newItem, compartment: key });
+                }
+                const tag = document.createElement('div');
+                tag.className = 'chat-tag';
+                tag.textContent = `${getEmoji(item.name)} ${item.name}`;
+                addedList.appendChild(tag);
+            }
+
+            if (dbItems.length > 0) bulkSaveItemsToDB(dbItems);
+            preview.style.display = 'block';
+            preview.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            updateAllCardCounts();
+        }
+
+        // ── RECEIPT SCAN ─────────────────────────────────────────────────────
+        function showReceiptScan() {
+            showScreen('receiptScanScreen');
+        }
+
+        async function handleReceiptUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const statusEl = document.getElementById('scanStatus');
+            const previewEl = document.getElementById('receiptPreview');
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = e => {
+                previewEl.src = e.target.result;
+                previewEl.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+
+            statusEl.textContent = '🔍 Reading your receipt…';
+            statusEl.style.color = '#666';
+
+            // Convert to base64 for API
+            const base64 = await new Promise((res, rej) => {
+                const r = new FileReader();
+                r.onload = () => res(r.result.split(',')[1]);
+                r.onerror = rej;
+                r.readAsDataURL(file);
+            });
+
+            try {
+                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: 'claude-sonnet-4-20250514',
+                        max_tokens: 1000,
+                        messages: [{
+                            role: 'user',
+                            content: [
+                                {
+                                    type: 'image',
+                                    source: { type: 'base64', media_type: file.type || 'image/jpeg', data: base64 }
+                                },
+                                {
+                                    type: 'text',
+                                    text: `Look at this grocery receipt. Extract all food items purchased.
+For each item, figure out which compartment it belongs to: vegetables, fruits, proteins, dairy, condiments, leftovers, frozenMeals, frozenProduce, grains, or canned.
+Respond ONLY with a valid JSON array, no markdown, no explanation. Format:
+[{"name":"item name","compartment":"compartmentKey","qty":1}]
+Only include actual food items. Skip totals, taxes, store info, non-food items.`
+                                }
+                            ]
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                const text = data.content.find(b => b.type === 'text')?.text || '[]';
+                const clean = text.replace(/```json|```/g, '').trim();
+                const items = JSON.parse(clean);
+
+                if (!items.length) {
+                    statusEl.textContent = '😕 No food items found — try a clearer photo.';
+                    return;
+                }
+
+                // Add items to correct compartments
+                let added = 0;
+                const dbItems = [];
+                for (const item of items) {
+                    const key = item.compartment;
+                    if (compartments[key]) {
+                        const existing = compartments[key].items.find(i => i.name.toLowerCase() === item.name.toLowerCase());
+                        if (existing) {
+                            existing.qty += (item.qty || 1);
+                            updateItemQtyInDB(existing._id, existing.qty);
+                        } else {
+                            const newItem = { icon: getEmoji(item.name), name: item.name, qty: item.qty || 1 };
+                            compartments[key].items.push(newItem);
+                            dbItems.push({ ...newItem, compartment: key });
+                        }
+                        added++;
+                    }
+                }
+                if (dbItems.length > 0) bulkSaveItemsToDB(dbItems);
+
+                updateAllCardCounts();
+                statusEl.innerHTML = `✅ Added <strong>${added} items</strong> to your fridge & pantry!`;
+                statusEl.style.color = '#2E7D32';
+
+                document.getElementById('scanDoneBtn').style.display = 'block';
+
+            } catch (err) {
+                statusEl.textContent = '❌ Something went wrong. Try again.';
+                statusEl.style.color = '#C62828';
+                console.error(err);
+            }
+        }
+
+        // ── TAB SWITCHING ─────────────────────────────────────────────────────
+        let activeTab = 'fridge'
+
+        function switchTab(tab) {
+            activeTab = tab
+            const fridgeContainer = document.querySelector('.container')
+            const recipesTab = document.getElementById('recipesTab')
+
+            if (tab === 'fridge') {
+                fridgeContainer.style.display = 'block'
+                recipesTab.style.display = 'none'
+            } else {
+                fridgeContainer.style.display = 'none'
+                recipesTab.style.display = 'block'
+                loadRecipes()
+            }
+        }
+
+        function showTabBar() {
+            // no-op, tab bar removed in favor of button
+        }
+
+        // ── RECIPE STATE ──────────────────────────────────────────────────────
+        let allRecipes = []
+        let currentRecipe = null
+        let recipeFilter = 'all'
+
+        // ── RECIPE SCREENS ────────────────────────────────────────────────────
+        function showRecipesMain() {
+            document.getElementById('recipesMain').classList.add('active')
+            document.getElementById('addRecipeScreen').classList.remove('active')
+            document.getElementById('recipeDetailScreen').classList.remove('active')
+            loadRecipes()
+        }
+
+        function showAddRecipe() {
+            document.getElementById('recipesMain').classList.remove('active')
+            document.getElementById('addRecipeScreen').classList.add('active')
+            document.getElementById('recipeDetailScreen').classList.remove('active')
+            document.getElementById('urlImportStatus').textContent = ''
+            document.getElementById('photoImportStatus').textContent = ''
+            document.getElementById('recipeUrlInput').value = ''
+        }
+
+        function showRecipeDetail(recipe) {
+            currentRecipe = recipe
+            document.getElementById('recipesMain').classList.remove('active')
+            document.getElementById('addRecipeScreen').classList.remove('active')
+            document.getElementById('recipeDetailScreen').classList.add('active')
+            renderRecipeDetail(recipe)
+        }
+
+        // ── FILTER ────────────────────────────────────────────────────────────
+        function filterRecipes(filter) {
+            recipeFilter = filter
+            document.querySelectorAll('#recipesMain .filter-chip').forEach(c => c.classList.remove('active'))
+            document.getElementById(filter === 'all' ? 'rfAll' : filter === 'favorites' ? 'rfFav' : 'rfWant').classList.add('active')
+            renderRecipeList()
+        }
+
+        // ── LOAD FROM DB ──────────────────────────────────────────────────────
+        async function loadRecipes() {
+            if (!currentUser) return
+            try {
+                const { data, error } = await sb
+                    .from('recipes')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                if (error) throw error
+                allRecipes = data || []
+                renderRecipeList()
+            } catch (err) {
+                console.error('Error loading recipes:', err)
+            }
+        }
+
+        // ── RENDER RECIPE LIST ────────────────────────────────────────────────
+        function renderRecipeList() {
+            const list = document.getElementById('recipesList')
+            const empty = document.getElementById('recipesEmpty')
+
+            let recipes = allRecipes
+            if (recipeFilter === 'favorites') recipes = recipes.filter(r => r.is_favorite)
+            if (recipeFilter === 'want') recipes = recipes.filter(r => r.want_to_cook)
+
+            if (recipes.length === 0) {
+                empty.style.display = 'block'
+                list.innerHTML = ''
+                return
+            }
+            empty.style.display = 'none'
+
+            // Cross-ref ingredients vs inventory
+            const inventoryNames = new Set(
+                Object.values(compartments).flat().map ? 
+                Object.values(compartments).flatMap(c => c.items.map(i => i.name.toLowerCase())) :
+                []
+            )
+
+            list.innerHTML = recipes.map(r => {
+                const ingredients = Array.isArray(r.ingredients) ? r.ingredients : []
+                const haveCount = ingredients.filter(ing => {
+                    const n = (ing.name || '').toLowerCase()
+                    return [...inventoryNames].some(inv => inv.includes(n) || n.includes(inv))
+                }).length
+                const total = ingredients.length
+                const pct = total > 0 ? Math.round((haveCount / total) * 100) : 0
+
+                return `
+                <div class="recipe-card" onclick="showRecipeDetail(${JSON.stringify(r).replace(/"/g, '&quot;')})">
+                    ${r.image_url
+                        ? `<img src="${r.image_url}" class="recipe-card-img" onerror="this.style.display='none'" />`
+                        : `<div class="recipe-card-img">🍽️</div>`
+                    }
+                    <div class="recipe-card-body">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                            <div class="recipe-card-title">${r.title}</div>
+                            <div style="font-size:18px;margin-left:8px;">${r.is_favorite ? '❤️' : '🤍'}</div>
+                        </div>
+                        <div class="recipe-card-meta">
+                            ${r.source_name ? `<span class="recipe-meta-pill">📌 ${r.source_name}</span>` : ''}
+                            ${r.cook_time_mins ? `<span class="recipe-meta-pill">⏱ ${r.cook_time_mins} min</span>` : ''}
+                            ${r.servings ? `<span class="recipe-meta-pill">🍽 ${r.servings} servings</span>` : ''}
+                            ${r.want_to_cook ? `<span class="recipe-meta-pill">🔖 Want to cook</span>` : ''}
+                        </div>
+                        ${total > 0 ? `
+                        <div class="recipe-have-bar">
+                            <div class="recipe-have-track"><div class="recipe-have-fill" style="width:${pct}%"></div></div>
+                            <span>${haveCount}/${total} ingredients</span>
+                        </div>` : ''}
+                    </div>
+                </div>`
+            }).join('')
+        }
+
+        // ── RENDER RECIPE DETAIL ──────────────────────────────────────────────
+        function renderRecipeDetail(r) {
+            document.getElementById('recipeFavBtn').textContent = r.is_favorite ? '❤️' : '🤍'
+            document.getElementById('recipeWantBtn').style.opacity = r.want_to_cook ? '1' : '0.4'
+
+            const inventoryNames = new Set(
+                Object.values(compartments).flatMap(c => c.items.map(i => i.name.toLowerCase()))
+            )
+
+            const ingredients = Array.isArray(r.ingredients) ? r.ingredients : []
+            const steps = Array.isArray(r.steps) ? r.steps : []
+
+            document.getElementById('recipeDetailContent').innerHTML = `
+                ${r.image_url
+                    ? `<img src="${r.image_url}" class="recipe-detail-hero" onerror="this.style.display='none'" />`
+                    : `<div class="recipe-detail-hero">🍽️</div>`
+                }
+                <div style="background:white;border-radius:20px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+                    <div style="font-size:22px;font-weight:700;color:#2C2C26;margin-bottom:8px;">${r.title}</div>
+                    ${r.description ? `<div style="font-size:14px;color:#888;line-height:1.6;margin-bottom:12px;">${r.description}</div>` : ''}
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+                        ${r.source_name ? `<span class="recipe-meta-pill">📌 ${r.source_name}</span>` : ''}
+                        ${r.prep_time_mins ? `<span class="recipe-meta-pill">🥄 Prep ${r.prep_time_mins}m</span>` : ''}
+                        ${r.cook_time_mins ? `<span class="recipe-meta-pill">🔥 Cook ${r.cook_time_mins}m</span>` : ''}
+                        ${r.servings ? `<span class="recipe-meta-pill">🍽 ${r.servings} servings</span>` : ''}
+                    </div>
+
+                    ${ingredients.length > 0 ? `
+                    <div class="recipe-section-title">Ingredients</div>
+                    ${ingredients.map(ing => {
+                        const n = (ing.name || '').toLowerCase()
+                        const have = [...inventoryNames].some(inv => inv.includes(n) || n.includes(inv))
+                        return `<div class="recipe-ingredient-row">
+                            <span style="font-size:16px;">${have ? '✅' : '⬜'}</span>
+                            <span style="flex:1;color:${have ? '#2C2C26' : '#999'};">
+                                ${ing.qty ? `<strong>${ing.qty}</strong> ` : ''}${ing.unit ? ing.unit + ' ' : ''}${ing.name}
+                            </span>
+                        </div>`
+                    }).join('')}` : ''}
+
+                    ${steps.length > 0 ? `
+                    <div class="recipe-section-title">Steps</div>
+                    ${steps.map((step, i) => `
+                        <div class="recipe-step-row">
+                            <div class="recipe-step-num">${step.order || i+1}</div>
+                            <div style="flex:1;font-size:15px;line-height:1.6;color:#2C2C26;padding-top:4px;">${step.text}</div>
+                        </div>
+                    `).join('')}` : ''}
+
+                    ${r.source_url ? `
+                    <a href="${r.source_url}" target="_blank" style="display:block;margin-top:20px;text-align:center;color:#B9C9ED;font-size:14px;font-weight:600;text-decoration:none;">
+                        View original recipe →
+                    </a>` : ''}
+                </div>
+            `
+        }
+
+        // ── TOGGLE FAV / WANT ─────────────────────────────────────────────────
+        async function toggleRecipeFav() {
+            if (!currentRecipe) return
+            currentRecipe.is_favorite = !currentRecipe.is_favorite
+            document.getElementById('recipeFavBtn').textContent = currentRecipe.is_favorite ? '❤️' : '🤍'
+            await sb.from('recipes').update({ is_favorite: currentRecipe.is_favorite }).eq('id', currentRecipe.id)
+            const idx = allRecipes.findIndex(r => r.id === currentRecipe.id)
+            if (idx > -1) allRecipes[idx].is_favorite = currentRecipe.is_favorite
+        }
+
+        async function toggleRecipeWant() {
+            if (!currentRecipe) return
+            currentRecipe.want_to_cook = !currentRecipe.want_to_cook
+            document.getElementById('recipeWantBtn').style.opacity = currentRecipe.want_to_cook ? '1' : '0.4'
+            await sb.from('recipes').update({ want_to_cook: currentRecipe.want_to_cook }).eq('id', currentRecipe.id)
+            const idx = allRecipes.findIndex(r => r.id === currentRecipe.id)
+            if (idx > -1) allRecipes[idx].want_to_cook = currentRecipe.want_to_cook
+        }
+
+        // ── URL IMPORT ────────────────────────────────────────────────────────
+        async function importFromUrl() {
+            const url = document.getElementById('recipeUrlInput').value.trim()
+            if (!url) return
+            const statusEl = document.getElementById('urlImportStatus')
+            statusEl.style.color = '#666'
+            statusEl.textContent = '🤖 Fetching & extracting recipe…'
+
+            try {
+                const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: 'claude-sonnet-4-20250514',
+                        max_tokens: 2000,
+                        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+                        messages: [{
+                            role: 'user',
+                            content: `Please fetch this recipe URL and extract the full recipe: ${url}
+
+Return ONLY a raw JSON object with no markdown, no backticks, no explanation — just the JSON:
+{"title":"...","description":"...","source_name":"...","image_url":null,"prep_time_mins":null,"cook_time_mins":null,"servings":null,"cuisine":null,"tags":[],"ingredients":[{"name":"...","qty":"...","unit":"..."}],"steps":[{"order":1,"text":"..."}]}`
+                        }]
+                    })
+                })
+
+                const aiData = await aiRes.json()
+                console.log('AI response:', aiData)
+
+                if (aiData.error) throw new Error(aiData.error.message)
+
+                const rawText = aiData.content?.find(b => b.type === 'text')?.text || ''
+                console.log('Raw text:', rawText)
+
+                if (!rawText) throw new Error('No recipe text returned')
+
+                const cleaned = rawText.replace(/^```[a-z]*\n?/i, '').replace(/```$/, '').trim()
+                const recipe = JSON.parse(cleaned)
+
+                const { data, error } = await sb.from('recipes').insert({
+                    user_id: currentUser.id,
+                    source_url: url,
+                    source_type: 'url',
+                    ...recipe
+                }).select().single()
+
+                if (error) throw error
+
+                statusEl.style.color = '#2E7D32'
+                statusEl.textContent = `✅ "${recipe.title}" saved!`
+                document.getElementById('recipeUrlInput').value = ''
+                allRecipes.unshift(data)
+
+                setTimeout(() => showRecipeDetail(data), 1000)
+
+            } catch (err) {
+                statusEl.style.color = '#C62828'
+                statusEl.textContent = `❌ ${err.message || 'Could not extract recipe. Try another URL.'}`
+                console.error('Full error:', err)
+            }
+        }
+
+        // ── PHOTO IMPORT ──────────────────────────────────────────────────────
+        async function importFromPhoto(input) {
+            const file = input.files[0]
+            if (!file) return
+            const statusEl = document.getElementById('photoImportStatus')
+            statusEl.style.color = '#666'
+            statusEl.textContent = '📸 Reading cookbook page…'
+
+            const base64 = await new Promise((res, rej) => {
+                const r = new FileReader()
+                r.onload = () => res(r.result.split(',')[1])
+                r.onerror = rej
+                r.readAsDataURL(file)
+            })
+
+            try {
+                const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: 'claude-sonnet-4-20250514',
+                        max_tokens: 2000,
+                        messages: [{
+                            role: 'user',
+                            content: [
+                                { type: 'image', source: { type: 'base64', media_type: file.type || 'image/jpeg', data: base64 } },
+                                { type: 'text', text: `This is a photo of a cookbook or recipe page. Extract the complete recipe and return ONLY valid JSON, no markdown:
+{
+  "title": "...",
+  "description": "...",
+  "source_name": "cookbook name if visible, else null",
+  "prep_time_mins": null,
+  "cook_time_mins": null,
+  "servings": null,
+  "cuisine": null,
+  "tags": [],
+  "ingredients": [{"name": "...", "qty": "...", "unit": "..."}],
+  "steps": [{"order": 1, "text": "..."}]
+}` }
+                            ]
+                        }]
+                    })
+                })
+
+                const aiData = await aiRes.json()
+                const text = aiData.content?.find(b => b.type === 'text')?.text || '{}'
+                const recipe = JSON.parse(text.replace(/```json|```/g, '').trim())
+
+                const { data, error } = await sb.from('recipes').insert({
+                    user_id: currentUser.id,
+                    source_type: 'photo',
+                    ...recipe
+                }).select().single()
+
+                if (error) throw error
+
+                statusEl.style.color = '#2E7D32'
+                statusEl.textContent = `✅ "${recipe.title}" saved!`
+                allRecipes.unshift(data)
+
+                setTimeout(() => showRecipeDetail(data), 1000)
+
+            } catch (err) {
+                statusEl.style.color = '#C62828'
+                statusEl.textContent = '❌ Could not read recipe. Try a clearer photo.'
+                console.error(err)
+            }
+        }
+
+        // ── INIT ─────────────────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            updateAllCardCounts();
+            document.querySelectorAll('.add-to-tasks-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    alert('This meal would be added to your Tasks and broken down into micro-steps with star rewards! 🌟');
+                });
+            });
+        });
+
+        // Show tab bar once logged in
+        function showTabBar() {
+            const bar = document.getElementById('tabBar')
+            bar.style.display = 'flex'
+            switchTab('fridge')
+        }
+    </script>
+</body>
+</html>
